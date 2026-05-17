@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    name: build + test (${{ matrix.os }} / ${{ matrix.cc }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        cc: [gcc, clang]
+        exclude:
+          # macOS gcc is just a clang shim, skip the duplicate.
+          - os: macos-latest
+            cc: gcc
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: toolchain info
+        env:
+          CC: ${{ matrix.cc }}
+        run: |
+          "$CC" --version
+          uname -a
+          make --version | head -1
+
+      - name: build
+        env:
+          CC: ${{ matrix.cc }}
+        run: make clean && make all
+
+      - name: smoke
+        run: echo 'echo hello | cat' | ./microshell | grep -q '^hello$'
+
+      - name: test
+        run: make test

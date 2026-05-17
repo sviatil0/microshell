@@ -1,0 +1,28 @@
+# build artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dSYM/
+microshell
+
+# editor / OS junk
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# test scratch
+tests/.in
+tests/.out
+tests/.err
+tests/tmp/
+
+# coverage / profiling
+*.gcda
+*.gcno
+*.gcov
+*.profraw
