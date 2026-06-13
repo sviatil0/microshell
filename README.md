@@ -9,9 +9,9 @@
 
 `microshell` is an interactive POSIX-ish shell written from scratch in
 about a thousand lines of C. It implements the core mechanics any "real"
-shell needs — fork/exec, pipelines, redirections, signal handling,
+shell needs: fork/exec, pipelines, redirections, signal handling,
 process-group / terminal-control transfer, job control, history,
-variable expansion — without leaning on `readline`, `libedit`, or any
+variable expansion, without leaning on `readline`, `libedit`, or any
 of the usual textbook scaffolding. Just libc.
 
 The point isn't to replace `bash`. The point is to show that the
@@ -146,7 +146,7 @@ flowchart TD
 
 Each module has a single responsibility and a short public header
 (`parser.h`, `executor.h`, `builtins.h`, `jobs.h`, `history.h`). Global
-mutable state is intentionally confined to `jobs.c` and `history.c` —
+mutable state is intentionally confined to `jobs.c` and `history.c`;
 everywhere else, ownership is explicit and short-lived.
 
 ## Supported syntax cheat sheet
@@ -180,7 +180,7 @@ them:
   still available via the `history` builtin).
 - **`SIGCHLD` is async-signal-restricted.** The handler does exactly
   one thing: set a `volatile sig_atomic_t` flag. The main loop calls
-  `ms_jobs_reap()` at a safe point. No `printf` from the handler — that
+  `ms_jobs_reap()` at a safe point. No `printf` from the handler; that
   would be a textbook async-signal-safety bug.
 - **Terminal control.** Before launching a foreground pipeline,
   `tcsetpgrp(tty, pgid)` hands the controlling tty to the pipeline's
@@ -218,7 +218,7 @@ them:
 - A real line editor (cursor movement, history scroll, completion)
 
 If you need any of those, use bash. If you want to understand how the
-ones that *are* here actually work under the hood, read the source —
+ones that *are* here actually work under the hood, read the source;
 it's about a thousand lines and every module has a header comment.
 
 ## Testing
@@ -230,9 +230,9 @@ make test
 This runs two suites that pipe scripted input into the binary and
 diff the output:
 
-- `tests/test_parser.sh` — parser edge cases (quoting, expansion,
+- `tests/test_parser.sh`: parser edge cases (quoting, expansion,
   comments, pipes, escapes).
-- `tests/integration.sh` — redirections, builtins, exit-status
+- `tests/integration.sh`: redirections, builtins, exit-status
   propagation, multi-stage pipelines, backgrounding, and `kill`
   signal parsing (numeric and symbolic).
 
