@@ -246,6 +246,14 @@ static int bi_bg(ms_cmd *cmd, int *exitf) {
     return 0;
 }
 
+/* NSIG is not exposed under strict _POSIX_C_SOURCE on glibc; fall back to a
+ * safe upper bound (real signal numbers never exceed this on supported OSes). */
+#ifndef NSIG
+#define MS_SIG_MAX 65
+#else
+#define MS_SIG_MAX NSIG
+#endif
+
 /* Parse a signal spec after '-': a number ("9") or a name ("KILL"/"SIGKILL").
  * Returns the signal number, or -1 if unrecognized. */
 static int parse_signal(const char *spec) {
@@ -257,7 +265,7 @@ static int parse_signal(const char *spec) {
     }
     if (all_digits) {
         int n = atoi(spec);
-        return (n > 0 && n < NSIG) ? n : -1;
+        return (n > 0 && n < MS_SIG_MAX) ? n : -1;
     }
     /* Accept an optional "SIG" prefix, case-insensitive on the name. */
     const char *name = spec;
