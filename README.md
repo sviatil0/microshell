@@ -24,6 +24,7 @@ ideas behind `bash` are not magic, and to do them carefully.
 - [x] Multi-stage pipelines: `a | b | c | ...`
 - [x] Redirections: `<`, `>`, `>>`, `2>`
 - [x] Background jobs: `cmd &`, plus `jobs`, `fg`, `bg`, `kill`
+      (`kill` takes numeric `-9` or symbolic `-SIGKILL`/`-KILL`)
 - [x] Builtins: `cd`, `pwd`, `exit`, `export`, `unset`, `env`, `help`,
       `history`, `jobs`, `fg`, `bg`, `kill`
 - [x] Variable expansion: `$VAR`, `${VAR}`, `$?`
@@ -83,6 +84,37 @@ make install PREFIX=$HOME/.local
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    subgraph repl["shell.c: REPL + terminal control"]
+        S["read line · grab terminal (tcsetpgrp)<br/>install SIGINT / SIGCHLD / SIGTSTP handlers"]
+    end
+    subgraph parse["parser.c: front end"]
+        P["tokenize → expand vars → build ms_pipeline<br/>hand-written state machine, no regex"]
+    end
+    subgraph exec["executor.c: process engine"]
+        E["fork / execvp · pipes · redirections<br/>process-group (pgid) management"]
+    end
+    B["builtins.c<br/>cd · exit · export · kill · …"]
+    J["jobs.c<br/>job table · SIGCHLD reaping · fg/bg"]
+    H["history.c<br/>in-memory + ~/.microshell_history"]
+
+    STDIN(["stdin"]) --> S
+    S --> P
+    P -- "ms_pipeline" --> E
+    E -- "single-stage builtin<br/>(runs in-process)" --> B
+    E -- "register / signal" --> J
+    S -- "append command" --> H
+    J -. "async-signal-safe flag<br/>reaped in main loop" .-> S
+    E -- "tcsetpgrp handoff" --> E
+
+    classDef mod fill:#eef4fb,stroke:#0a4d8c,color:#111;
+    class S,P,E,B,J,H mod;
+```
+
+<details>
+<summary>ASCII fallback (same architecture)</summary>
+
 ```
             +------------------+
    stdin -->|     shell.c      |   REPL: read line, drive everything
@@ -109,6 +141,8 @@ make install PREFIX=$HOME/.local
             |   history.c      |   in-memory + ~/.microshell_history
             +------------------+
 ```
+
+</details>
 
 Each module has a single responsibility and a short public header
 (`parser.h`, `executor.h`, `builtins.h`, `jobs.h`, `history.h`). Global
@@ -199,7 +233,10 @@ diff the output:
 - `tests/test_parser.sh` — parser edge cases (quoting, expansion,
   comments, pipes, escapes).
 - `tests/integration.sh` — redirections, builtins, exit-status
-  propagation, multi-stage pipelines, backgrounding.
+  propagation, multi-stage pipelines, backgrounding, and `kill`
+  signal parsing (numeric and symbolic).
+
+Thirty cases total; all green on Linux and macOS.
 
 CI (Ubuntu + macOS, gcc + clang) is wired in `.github/workflows/ci.yml`.
 

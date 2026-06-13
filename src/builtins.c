@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <errno.h>
 #include <signal.h>
@@ -245,6 +246,33 @@ static int bi_bg(ms_cmd *cmd, int *exitf) {
     return 0;
 }
 
+/* Parse a signal spec after '-': a number ("9") or a name ("KILL"/"SIGKILL").
+ * Returns the signal number, or -1 if unrecognized. */
+static int parse_signal(const char *spec) {
+    if (!spec || !*spec) return -1;
+    /* All-digits -> numeric signal. */
+    int all_digits = 1;
+    for (const char *p = spec; *p; p++) {
+        if (*p < '0' || *p > '9') { all_digits = 0; break; }
+    }
+    if (all_digits) {
+        int n = atoi(spec);
+        return (n > 0 && n < NSIG) ? n : -1;
+    }
+    /* Accept an optional "SIG" prefix, case-insensitive on the name. */
+    const char *name = spec;
+    if (strncasecmp(name, "SIG", 3) == 0) name += 3;
+    static const struct { const char *n; int s; } sigs[] = {
+        {"HUP", SIGHUP}, {"INT", SIGINT}, {"QUIT", SIGQUIT}, {"KILL", SIGKILL},
+        {"TERM", SIGTERM}, {"STOP", SIGSTOP}, {"CONT", SIGCONT}, {"TSTP", SIGTSTP},
+        {"USR1", SIGUSR1}, {"USR2", SIGUSR2}, {"ABRT", SIGABRT}, {"ALRM", SIGALRM},
+        {"SEGV", SIGSEGV}, {"PIPE", SIGPIPE},
+    };
+    for (size_t i = 0; i < sizeof(sigs) / sizeof(sigs[0]); i++)
+        if (strcasecmp(name, sigs[i].n) == 0) return sigs[i].s;
+    return -1;
+}
+
 static int bi_kill(ms_cmd *cmd, int *exitf) {
     (void)exitf;
     if (cmd->argc < 2) { fprintf(stderr, "usage: kill [-SIG] pid|%%n\n"); return 1; }
@@ -252,9 +280,9 @@ static int bi_kill(ms_cmd *cmd, int *exitf) {
     int sig = SIGTERM;
     size_t arg_i = 1;
     if (cmd->argv[1][0] == '-' && cmd->argv[1][1]) {
-        sig    = atoi(cmd->argv[1] + 1);
+        sig    = parse_signal(cmd->argv[1] + 1);
         arg_i  = 2;
-        if (sig <= 0) { fprintf(stderr, "kill: bad signal\n"); return 1; }
+        if (sig <= 0) { fprintf(stderr, "kill: %s: invalid signal\n", cmd->argv[1] + 1); return 1; }
     }
     int rc = 0;
     for (; arg_i < cmd->argc; arg_i++) {

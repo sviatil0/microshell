@@ -85,6 +85,17 @@ assert_eq "quoted-spaces-survive" "$got" "a  b   c"
 out=$(printf 'true &\necho done\n' | "$MSH" 2>/dev/null)
 assert_eq "background-echo-runs" "$out" "done"
 
+# 13. kill accepts a symbolic signal name (-SIGKILL), not just a number
+err=$(printf 'sleep 5 &\nkill -SIGKILL %%1\n' | "$MSH" 2>&1 >/dev/null)
+got=$(printf '%s' "$err" | grep -ci "invalid signal")
+assert_eq "kill-symbolic-signal-accepted" "$got" "0"
+
+# 14. kill rejects an unknown signal name cleanly
+err=$(printf 'sleep 5 &\nkill -BOGUS %%1\n' | "$MSH" 2>&1 >/dev/null)
+got=$(printf '%s' "$err" | grep -ci "invalid signal")
+assert_eq "kill-bad-signal-rejected" "$got" "1"
+pkill -f "sleep 5" 2>/dev/null || true
+
 if (( fail > 0 )); then
   echo "integration.sh: $fail/$total cases failed" >&2
   exit 1

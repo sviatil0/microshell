@@ -104,12 +104,27 @@ static char *render_cmdline(ms_pipeline *p) {
     for (ms_cmd *c = p->head; c; c = c->next) {
         for (size_t i = 0; i < c->argc; i++) {
             size_t need = strlen(c->argv[i]) + 2;
-            if (len + need >= cap) { cap *= 2; buf = realloc(buf, cap); if (!buf) return NULL; }
+            if (len + need >= cap) {
+                while (len + need >= cap) cap *= 2;
+                char *grown = realloc(buf, cap);
+                if (!grown) { free(buf); return NULL; }  /* don't leak the old block */
+                buf = grown;
+            }
             if (len) strcat(buf, " ");
             strcat(buf, c->argv[i]);
             len = strlen(buf);
         }
-        if (c->next) { strcat(buf, " | "); len += 3; }
+        if (c->next) {
+            size_t need = 4; /* " | " + NUL */
+            if (len + need >= cap) {
+                while (len + need >= cap) cap *= 2;
+                char *grown = realloc(buf, cap);
+                if (!grown) { free(buf); return NULL; }
+                buf = grown;
+            }
+            strcat(buf, " | ");
+            len += 3;
+        }
     }
     return buf;
 }
